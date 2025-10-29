@@ -28,7 +28,6 @@ const ScreenCaptureTool: React.FC = () => {
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!isSelecting) return;
-    
     const rect = overlayRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -52,19 +51,18 @@ const ScreenCaptureTool: React.FC = () => {
     const currentX = e.clientX - rect.left;
     const currentY = e.clientY - rect.top;
 
-    setSelectionArea(prev => prev ? {
-      ...prev,
-      endX: currentX,
-      endY: currentY,
-    } : null);
+    setSelectionArea(prev =>
+        prev
+            ? { ...prev, endX: currentX, endY: currentY }
+            : null
+    );
   }, [isSelecting, selectionArea]);
 
   const handleMouseUp = useCallback(async () => {
     if (!isSelecting || !selectionArea) return;
 
     setIsSelecting(false);
-    
-    // Calculate the actual screen coordinates
+
     const rect = overlayRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -73,7 +71,6 @@ const ScreenCaptureTool: React.FC = () => {
     const actualEndX = selectionArea.endX + rect.left;
     const actualEndY = selectionArea.endY + rect.top;
 
-    // Ensure we have a valid selection area
     const left = Math.min(actualStartX, actualEndX);
     const top = Math.min(actualStartY, actualEndY);
     const width = Math.abs(actualEndX - actualStartX);
@@ -85,7 +82,12 @@ const ScreenCaptureTool: React.FC = () => {
     }
 
     try {
-      // Capture the entire screen
+      const overlayEl = overlayRef.current;
+
+      // Temporarily hide the overlay
+      if (overlayEl) overlayEl.style.display = 'none';
+      await new Promise(res => setTimeout(res, 50)); // let DOM update
+
       const canvas = await html2canvas(document.body, {
         allowTaint: true,
         useCORS: true,
@@ -93,22 +95,18 @@ const ScreenCaptureTool: React.FC = () => {
         logging: false,
       });
 
-      // Create a new canvas for the selected area
+      // Restore overlay visibility
+      if (overlayEl) overlayEl.style.display = 'block';
+
       const croppedCanvas = document.createElement('canvas');
       croppedCanvas.width = width;
       croppedCanvas.height = height;
       const ctx = croppedCanvas.getContext('2d');
 
       if (ctx) {
-        // Draw the selected portion of the screen
-        ctx.drawImage(
-          canvas,
-          left, top, width, height,
-          0, 0, width, height
-        );
+        ctx.drawImage(canvas, left, top, width, height, 0, 0, width, height);
 
-        // Convert to blob and download
-        croppedCanvas.toBlob((blob) => {
+        croppedCanvas.toBlob(blob => {
           if (blob) {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -145,88 +143,88 @@ const ScreenCaptureTool: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <button
-        onClick={startCapture}
-        disabled={isCapturing}
-        style={{
-          padding: '12px 24px',
-          fontSize: '16px',
-          backgroundColor: '#007bff',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: isCapturing ? 'not-allowed' : 'pointer',
-          opacity: isCapturing ? 0.6 : 1,
-        }}
-      >
-        {isCapturing ? 'Capturing...' : 'Capture Screen'}
-      </button>
-
-      {isCapturing && (
-        <div
-          ref={overlayRef}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 9999,
-            cursor: isSelecting ? 'crosshair' : 'default',
-          }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-        >
-          <div
+      <div style={{ padding: '20px' }}>
+        <button
+            onClick={startCapture}
+            disabled={isCapturing}
             style={{
-              position: 'absolute',
-              top: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              color: 'white',
-              padding: '10px 20px',
-              borderRadius: '6px',
-              fontSize: '14px',
-            }}
-          >
-            {isSelecting ? 'Drag to select area' : 'Release to capture'}
-          </div>
-
-          {selectionArea && (
-            <div
-              style={{
-                position: 'absolute',
-                border: '2px solid #007bff',
-                backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                ...getSelectionStyle(),
-              }}
-            />
-          )}
-
-          <button
-            onClick={cancelCapture}
-            style={{
-              position: 'absolute',
-              top: '20px',
-              right: '20px',
-              padding: '8px 16px',
-              backgroundColor: '#dc3545',
+              padding: '12px 24px',
+              fontSize: '16px',
+              backgroundColor: '#007bff',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
+              borderRadius: '6px',
+              cursor: isCapturing ? 'not-allowed' : 'pointer',
+              opacity: isCapturing ? 0.3 : 1,
             }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-    </div>
+        >
+          {isCapturing ? 'Capturing...' : 'Capture Screen'}
+        </button>
+
+        {isCapturing && (
+            <div
+                ref={overlayRef}
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  zIndex: 9999,
+                  cursor: isSelecting ? 'crosshair' : 'default',
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+            >
+              <div
+                  style={{
+                    position: 'absolute',
+                    top: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    color: 'white',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                  }}
+              >
+                {isSelecting ? 'Drag to select area' : 'Release to capture'}
+              </div>
+
+              {selectionArea && (
+                  <div
+                      style={{
+                        position: 'absolute',
+                        border: '2px solid #007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        ...getSelectionStyle(),
+                      }}
+                  />
+              )}
+
+              <button
+                  onClick={cancelCapture}
+                  style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    padding: '8px 16px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                  }}
+              >
+                Cancel
+              </button>
+            </div>
+        )}
+      </div>
   );
 };
 
